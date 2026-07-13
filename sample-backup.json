@@ -1,4 +1,10 @@
 {
-  "note": "Public sample backup. The app dynamically creates a richer demo backup from the browser.",
-  "version": "demo-v1"
+  "note": "Public sample backup. No real personal information.",
+  "version": "demo-v1.1",
+  "appointments": {
+    "psychologyNextDate": "2026-08-05",
+    "nutritionistNextDate": "2026-08-22",
+    "physioLastVisit": "2026-06-15",
+    "physioIntervalWeeks": 8
+  }
 }

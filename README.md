@@ -1,6 +1,6 @@
 # Personal Fitness App Demo
 
-Public demo of a mobile-first personal fitness dashboard.
+Public demo of a mobile-first personal fitness dashboard (v1.1).
 
 ## What is included
 
@@ -9,7 +9,7 @@ Public demo of a mobile-first personal fitness dashboard.
 - Consistency tracking.
 - Demo goals with days to completion.
 - Recovery and overload-prevention indicator.
-- Demo psychology and physiotherapy appointment reminders.
+- Demo psychology, physiotherapy, and nutritionist appointment reminders.
 - Sample nutrition plan.
 - Demo body-composition trend.
 - Exportable demo backup.

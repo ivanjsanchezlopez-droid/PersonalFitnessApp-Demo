@@ -132,6 +132,7 @@ function makeDemoData() {
     ],
     appointments: {
       psychologyNextDate: addDays(1),
+      nutritionistNextDate: addDays(18),
       physioLastVisit: addDays(-55),
       physioIntervalWeeks: 8
     },
@@ -146,13 +147,23 @@ function makeDemoData() {
 }
 
 function loadState() {
-  let state = localStorage.getItem(KEY);
-  if (!state) {
-    state = makeDemoData();
-    localStorage.setItem(KEY, JSON.stringify(state));
-    return state;
+  let stored = localStorage.getItem(KEY);
+  if (!stored) {
+    const initial = makeDemoData();
+    localStorage.setItem(KEY, JSON.stringify(initial));
+    return initial;
   }
-  return JSON.parse(state);
+
+  const state = JSON.parse(stored);
+
+  // Backward-compatible migration for browsers that already opened demo v1.0.
+  state.appointments = state.appointments || {};
+  if (!("nutritionistNextDate" in state.appointments)) {
+    state.appointments.nutritionistNextDate = addDays(18);
+    localStorage.setItem(KEY, JSON.stringify(state));
+  }
+
+  return state;
 }
 function saveState(state) {
   localStorage.setItem(KEY, JSON.stringify(state));
@@ -339,15 +350,43 @@ function renderRecovery(state) {
   document.getElementById("physioDue").textContent = physioDays < 0 ? `Overdue ${Math.abs(physioDays)} days` : physioDays === 0 ? "Today" : physioDays === 1 ? "Tomorrow" : `In ${physioDays} days`;
 }
 
+function appointmentLabel(days, noun = "Appointment") {
+  if (days < 0) return `${noun} was ${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"} ago`;
+  if (days === 0) return `${noun} today`;
+  if (days === 1) return `${noun} tomorrow`;
+  return `${noun} in ${days} days`;
+}
+
 function renderAppointments(state) {
   const psychDays = daysBetween(new Date(), new Date(state.appointments.psychologyNextDate + "T12:00:00"));
-  document.getElementById("psychologyTitle").textContent = psychDays === 1 ? "Session tomorrow" : `Session in ${psychDays} days`;
+  document.getElementById("psychologyTitle").textContent = appointmentLabel(psychDays, "Session");
   document.getElementById("psychologyText").textContent = `${fmt(state.appointments.psychologyNextDate)} · sample reminder to verify time and modality.`;
+
   const due = new Date(state.appointments.physioLastVisit + "T12:00:00");
   due.setDate(due.getDate() + state.appointments.physioIntervalWeeks * 7);
-  const days = daysBetween(new Date(), due);
-  document.getElementById("physioTitle").textContent = days === 1 ? "Preventive review tomorrow" : `Preventive review in ${days} days`;
+  const physioDays = daysBetween(new Date(), due);
+  document.getElementById("physioTitle").textContent = appointmentLabel(physioDays, "Preventive review");
   document.getElementById("physioText").textContent = `Last sample visit: ${fmt(state.appointments.physioLastVisit)} · interval: ${state.appointments.physioIntervalWeeks} weeks.`;
+
+  const nutritionistDate = state.appointments.nutritionistNextDate || "";
+  const input = document.getElementById("nutritionistDate");
+  const card = document.getElementById("nutritionistCard");
+  input.value = nutritionistDate;
+  card.classList.remove("reminder-tomorrow", "reminder-today", "reminder-past");
+
+  if (!nutritionistDate) {
+    document.getElementById("nutritionistTitle").textContent = "Not scheduled yet";
+    document.getElementById("nutritionistText").textContent = "Select the next nutritionist appointment date.";
+    return;
+  }
+
+  const nutritionistDays = daysBetween(new Date(), new Date(nutritionistDate + "T12:00:00"));
+  document.getElementById("nutritionistTitle").textContent = appointmentLabel(nutritionistDays);
+  document.getElementById("nutritionistText").textContent = `${fmt(nutritionistDate)} · sample reminder to prepare recent progress and questions.`;
+
+  if (nutritionistDays === 0) card.classList.add("reminder-today");
+  else if (nutritionistDays === 1) card.classList.add("reminder-tomorrow");
+  else if (nutritionistDays < 0) card.classList.add("reminder-past");
 }
 
 function renderNutrition() {
@@ -405,6 +444,28 @@ document.getElementById("exportBackup").addEventListener("click", () => {
   link.click();
   URL.revokeObjectURL(url);
   toast("Demo backup exported.");
+});
+
+document.getElementById("saveNutritionistDate").addEventListener("click", () => {
+  const selectedDate = document.getElementById("nutritionistDate").value;
+  if (!selectedDate) {
+    toast("Choose a nutritionist appointment date first.");
+    return;
+  }
+
+  const state = loadState();
+  state.appointments.nutritionistNextDate = selectedDate;
+  saveState(state);
+  render();
+  toast("Nutritionist appointment saved.");
+});
+
+document.getElementById("clearNutritionistDate").addEventListener("click", () => {
+  const state = loadState();
+  state.appointments.nutritionistNextDate = "";
+  saveState(state);
+  render();
+  toast("Nutritionist appointment cleared.");
 });
 
 render();
