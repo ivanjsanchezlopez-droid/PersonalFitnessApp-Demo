@@ -1,56 +1,40 @@
-# Personal Fitness App — v4.4
+# Personal Fitness App Demo
 
-A mobile-first personal dashboard published with GitHub Pages.
+Public demo of a mobile-first personal fitness dashboard.
 
-## Included features
+## What is included
 
-- Push, Pull and Legs gym routines.
+- Gym routines.
 - Four-week swimming plan.
-- Mobility, mountain and open-water activity tracking.
-- Completed-session history with undo and individual deletion.
-- Weekly/monthly consistency and active-day streak.
-- Local export and import of a complete backup.
-- Personal body-composition goals with completion date and days to achieve.
-- Recovery and overload-prevention check-in.
-- Psychology appointment tracking with an in-app one-day reminder.
-- Physiotherapy tracking and recurring preventive-review date.
-- Static nutrition plan.
-- Private local loading of InBody data from JSON.
-- Offline-capable Progressive Web App.
+- Consistency tracking.
+- Demo goals with days to completion.
+- Recovery and overload-prevention indicator.
+- Demo psychology and physiotherapy appointment reminders.
+- Sample nutrition plan.
+- Demo body-composition trend.
+- Exportable demo backup.
+- Offline-ready Progressive Web App.
 
-## Required public files
+## Important
 
-Upload these files to the root of the `main` branch:
+All visible data is realistic dummy data.
 
-- `.gitignore`
-- `README.md`
-- `UPLOAD_INSTRUCTIONS.txt`
-- `app.js`
-- `icon-192.png`
-- `icon-512.png`
-- `index.html`
-- `manifest.webmanifest`
-- `style.css`
-- `sw.js`
-
-## Private files
-
-Do not upload the following files to the public repository:
+Do not upload personal files such as:
 
 - `body-composition.json`
-- `personal-fitness-backup-*.json`
+- Garmin exports
+- screenshots of medical or body-composition reports
+- real appointment dates
+- personal backup files
 
-The application reads and stores those records locally in the browser.
+## GitHub Pages setup
 
-## GitHub Pages
+1. Upload all files to the root of the `main` branch.
+2. Go to `Settings → Pages`.
+3. Select `Deploy from a branch`.
+4. Select branch `main` and folder `/ (root)`.
+5. Save.
 
-Configure:
+Expected URL:
 
-- Source: **Deploy from a branch**
-- Branch: **main**
-- Folder: **/(root)**
-
-## Health notice
-
-The recovery indicator is informational. It does not diagnose injuries or
-replace medical, physiotherapy, psychological or nutritional care.
+`https://ivanjsanchezlopez-droid.github.io/PersonalFitnessApp-Demo/`

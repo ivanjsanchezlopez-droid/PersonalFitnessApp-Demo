@@ -1,12 +1,12 @@
 {
-  "name": "Personal Fitness App",
-  "short_name": "Fitness",
+  "name": "Personal Fitness App Demo",
+  "short_name": "Fitness Demo",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#09111f",
   "theme_color": "#0f172a",
-  "description": "Personal dashboard for training, nutrition, goals, appointments, recovery and body composition.",
+  "description": "Public demo of a personal fitness dashboard using realistic dummy data.",
   "icons": [
     {
       "src": "icon-192.png",

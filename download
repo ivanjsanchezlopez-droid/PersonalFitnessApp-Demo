@@ -1,8 +1,12 @@
-# Private health and backup files
+# Private files that should never be uploaded
 body-composition.json
 personal-fitness-backup-*.json
+garmin-*.csv
+*.fit
+*.tcx
+*.gpx
 
-# Local archives and operating system files
+# Local archives and OS files
 *.zip
 .DS_Store
 Thumbs.db

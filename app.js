@@ -1,1327 +1,202 @@
-const HISTORY_KEY = "personalFitnessHistoryV1";
-const BODY_KEY = "personalFitnessBodyV1";
-const RECOVERY_KEY = "personalFitnessRecoveryV1";
-const PHYSIO_KEY = "personalFitnessPhysioV1";
-const GOALS_KEY = "personalFitnessGoalsV1";
-const APPOINTMENTS_KEY = "personalFitnessAppointmentsV1";
-const BACKUP_META_KEY = "personalFitnessBackupMetaV1";
-const APP_VERSION = "4.4";
+const KEY = "fitnessDemoV1";
+const TYPES = ["Gym", "Swimming", "Mobility", "Hiking", "Open water"];
+const LOAD_TYPES = ["Gym", "Swimming", "Hiking", "Open water"];
 
-const ACTIVITY_TYPES = ["Gimnasio", "Natación", "Movilidad", "Montaña", "Aguas abiertas"];
-const LOAD_TYPES = ["Gimnasio", "Natación", "Montaña", "Aguas abiertas"];
+function dateKey(date = new Date()) {
+  return date.toISOString().slice(0, 10);
+}
+function addDays(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return dateKey(d);
+}
+function startOfWeek(date = new Date()) {
+  const d = new Date(date);
+  const day = d.getDay();
+  d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
+  d.setHours(0,0,0,0);
+  return d;
+}
+function daysBetween(a, b) {
+  const one = 86400000;
+  const start = new Date(a);
+  const end = new Date(b);
+  start.setHours(12,0,0,0);
+  end.setHours(12,0,0,0);
+  return Math.round((end - start) / one);
+}
+function fmt(date) {
+  return new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short", year: "numeric" }).format(new Date(date + "T12:00:00"));
+}
+function escapeHtml(value) {
+  return String(value).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
+}
 
+const ROUTINES = {
+  gym: [
+    { title: "Day 1 — Push", session: "Push", type: "Gym", items: [
+      ["Bench Press", "4 × 4–6"], ["Incline Dumbbell Press", "3 × 8"], ["Landmine Press", "3 × 8 each side"], ["Lateral Raises", "3 × 12–15"], ["Dips", "3 × 6–10"], ["Triceps Rope Pushdown", "3 × 10–15"]
+    ]},
+    { title: "Day 2 — Pull", session: "Pull", type: "Gym", items: [
+      ["Deadlift", "3 × 3–5"], ["Pull-ups", "4 × 5–8"], ["Chest-supported Row", "3 × 8–10"], ["Face Pull", "3 × 12–15"], ["Hammer Curl", "3 × 10–12"], ["Pallof Press", "3 × 10 each side"]
+    ]},
+    { title: "Day 3 — Legs", session: "Legs", type: "Gym", items: [
+      ["Back Squat", "4 × 4–6"], ["Romanian Deadlift", "3 × 6–8"], ["Bulgarian Split Squat", "3 × 8 each side"], ["Hip Thrust", "3 × 8–10"], ["Leg Curl", "3 × 10–12"], ["Calf Raise", "3 × 12–15"]
+    ]}
+  ],
+  swim: [
+    { title: "Week 1 — Technique and changes", session: "Swim W1 S1", type: "Swimming", total: "2,000 m", items: [
+      ["Warm-up", "300 m easy"], ["Technique", "4 × 50 m"], ["Kick", "300 m board"], ["Pull + paddles", "300 m Z3"], ["Pace changes", "8 × 100 m"], ["Cool down", "100 m"]
+    ]},
+    { title: "Week 1 — Z3 hypoxic", session: "Swim W1 S2", type: "Swimming", total: "2,000 m", items: [
+      ["Warm-up", "300 m"], ["Progressive", "4 × 100 m"], ["Z3 hypoxic", "4 × 200 m"], ["Sprint", "4 × 50 m"], ["Backstroke", "100 m"], ["Cool down", "200 m"]
+    ]},
+    { title: "Week 2 — Strength endurance", session: "Swim W2 S1", type: "Swimming", total: "2,200 m", items: [
+      ["Warm-up", "400 m"], ["Technique", "4 × 50 m"], ["Kick", "300 m"], ["Pull + paddles", "300 m Z3"], ["Z3", "6 × 100 m"], ["Z4", "4 × 50 m"], ["Cool down", "200 m"]
+    ]},
+    { title: "Week 2 — Aerobic threshold", session: "Swim W2 S2", type: "Swimming", total: "2,400 m", items: [
+      ["Warm-up", "400 m"], ["Z3 hypoxic", "6 × 200 m"], ["Fast/easy", "8 × 50 m"], ["Backstroke", "200 m"], ["Cool down", "200 m"]
+    ]},
+    { title: "Week 3 — T15 control", session: "Swim W3 S1", type: "Swimming", total: "1,300 m + T15", items: [
+      ["Warm-up", "300 m"], ["Technique", "4 × 50 m"], ["Z2", "4 × 100 m"], ["T15", "15 minutes steady hard"], ["Recovery technique", "4 × 50 m"], ["Cool down", "200 m"]
+    ]},
+    { title: "Week 3 — Threshold and speed", session: "Swim W3 S2", type: "Swimming", total: "2,400 m", items: [
+      ["Warm-up", "400 m"], ["Z3", "8 × 100 m"], ["Z4", "4 × 100 m"], ["Fast 50s", "8 × 50 m"], ["Backstroke", "200 m"], ["Cool down", "200 m"]
+    ]},
+    { title: "Week 4 — Aerobic technical", session: "Swim W4 S1", type: "Swimming", total: "2,000 m", items: [
+      ["Warm-up", "300 m"], ["Technique", "6 × 50 m"], ["Z2", "8 × 100 m"], ["Kick", "4 × 50 m"], ["Pull easy", "4 × 50 m"], ["Cool down", "200 m"]
+    ]},
+    { title: "Week 4 — Mixed quality", session: "Swim W4 S2", type: "Swimming", total: "2,400 m", items: [
+      ["Warm-up", "400 m"], ["Progressive", "4 × 100 m"], ["Z3 hypoxic", "6 × 200 m"], ["Sprint", "4 × 50 m"], ["Cool down", "200 m"]
+    ]}
+  ]
+};
 
-const GOAL_START_DATE = "2026-06-01";
-
-const GOAL_DEFINITIONS = [
-  {
-    id: "weight",
-    title: "Peso corporal",
-    initial: "77,7 kg",
-    target: "73–75 kg",
-    field: "weightKg",
-    format: value => `${Number(value).toFixed(1)} kg`,
-    reached: value => Number(value) >= 73 && Number(value) <= 75
-  },
-  {
-    id: "bodyFat",
-    title: "Grasa corporal",
-    initial: "20,1%",
-    target: "17–18%",
-    field: "bodyFatPercent",
-    format: value => `${Number(value).toFixed(1)}%`,
-    reached: value => Number(value) >= 17 && Number(value) <= 18
-  },
-  {
-    id: "muscle",
-    title: "Mantener masa muscular",
-    initial: "35,4 kg",
-    target: "≥35 kg",
-    field: "muscleKg",
-    format: value => `${Number(value).toFixed(1)} kg`,
-    reached: value => Number(value) >= 35
-  },
-  {
-    id: "fatMass",
-    title: "Masa grasa",
-    initial: "15,6 kg",
-    target: "12–13,5 kg",
-    field: "fatMassKg",
-    format: value => `${Number(value).toFixed(1)} kg`,
-    reached: value => Number(value) >= 12 && Number(value) <= 13.5
-  },
-  {
-    id: "visceralFat",
-    title: "Grasa visceral",
-    initial: "Nivel 6",
-    target: "Nivel 5–6",
-    field: "visceralFat",
-    format: value => `Nivel ${Number(value).toFixed(0)}`,
-    reached: value => Number(value) >= 5 && Number(value) <= 6
-  }
+const NUTRITION = [
+  { time: "7:00 AM", title: "Breakfast", options: [
+    "Oats, Greek yogurt, berries and peanut butter",
+    "Eggs, whole-grain toast, avocado and fruit"
+  ]},
+  { time: "10:00 AM", title: "Morning snack", options: [
+    "Protein shake with banana and skim milk",
+    "Cottage cheese with fruit"
+  ]},
+  { time: "12:30 PM", title: "Lunch", options: [
+    "Rice, beans, chicken breast, vegetables and olive oil",
+    "Pasta, tuna, salad and avocado"
+  ]},
+  { time: "3:30 PM", title: "Afternoon snack", options: [
+    "Whole-grain crackers, cheese and almonds",
+    "Greek yogurt with granola"
+  ]},
+  { time: "Pre-workout", title: "Before training", options: [
+    "Fruit + protein serving",
+    "Toast + honey + coffee"
+  ]},
+  { time: "7:30 PM", title: "Dinner", options: [
+    "Wrap with lean protein, beans and vegetables",
+    "Lean beef pasta with salad"
+  ]}
 ];
 
-function readJsonStorage(key, fallback) {
-  try {
-    const value = JSON.parse(localStorage.getItem(key));
-    return value ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function getHistory() {
-  return readJsonStorage(HISTORY_KEY, []);
-}
-
-function saveHistory(history) {
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-}
-
-function getRecoveryChecks() {
-  return readJsonStorage(RECOVERY_KEY, []);
-}
-
-function saveRecoveryChecks(checks) {
-  localStorage.setItem(RECOVERY_KEY, JSON.stringify(checks));
-}
-
-function getDefaultGoalsState() {
-  return {
-    items: Object.fromEntries(
-      GOAL_DEFINITIONS.map(goal => [
-        goal.id,
-        {
-          completed: false,
-          completionDate: null
-        }
-      ])
-    )
-  };
-}
-
-function getGoalsState() {
-  const stored = readJsonStorage(GOALS_KEY, null);
-  const defaults = getDefaultGoalsState();
-
-  if (!stored || typeof stored !== "object") return defaults;
-
-  GOAL_DEFINITIONS.forEach(goal => {
-    defaults.items[goal.id] = {
-      ...defaults.items[goal.id],
-      ...(stored.items?.[goal.id] || {})
-    };
-  });
-
-  return defaults;
-}
-
-function saveGoalsState(state) {
-  localStorage.setItem(GOALS_KEY, JSON.stringify(state));
-}
-
-function getAppointments() {
-  const stored = readJsonStorage(APPOINTMENTS_KEY, null);
-  const legacyPhysio = readJsonStorage(PHYSIO_KEY, null);
-
-  return {
-    psychologyNextDate: stored?.psychologyNextDate || null,
-    psychologyLastVisit: stored?.psychologyLastVisit || null,
-    physio: {
-      lastVisit: stored?.physio?.lastVisit || legacyPhysio?.lastVisit || null,
-      intervalWeeks:
-        Number(stored?.physio?.intervalWeeks || legacyPhysio?.intervalWeeks) || 8
-    }
-  };
-}
-
-function saveAppointments(appointments) {
-  localStorage.setItem(APPOINTMENTS_KEY, JSON.stringify(appointments));
-  localStorage.setItem(PHYSIO_KEY, JSON.stringify(appointments.physio));
-}
-
-function getPhysioSettings() {
-  return getAppointments().physio;
-}
-
-function savePhysioSettings(settings) {
-  const appointments = getAppointments();
-  appointments.physio = {
-    lastVisit: settings.lastVisit || null,
-    intervalWeeks: Number(settings.intervalWeeks) || 8
-  };
-  saveAppointments(appointments);
-}
-
-function localDateKey(date = new Date()) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-function dateFromKey(dateKey) {
-  const [year, month, day] = String(dateKey).split("-").map(Number);
-  return new Date(year, month - 1, day, 12, 0, 0);
-}
-
-function formatDate(dateKey) {
-  if (!dateKey) return "Sin fecha";
-  return new Intl.DateTimeFormat("es-CR", {
-    day: "numeric",
-    month: "short",
-    year: "numeric"
-  }).format(dateFromKey(dateKey));
-}
-
-function daysBetween(fromDate, toDate) {
-  const oneDay = 86400000;
-  const start = new Date(fromDate);
-  const end = new Date(toDate);
-  start.setHours(12, 0, 0, 0);
-  end.setHours(12, 0, 0, 0);
-  return Math.round((end - start) / oneDay);
-}
-
-function showToast(message, actionLabel = null, actionCallback = null, duration = 2500) {
-  const toast = document.getElementById("toast");
-  const messageNode = document.getElementById("toastMessage");
-  const actionButton = document.getElementById("toastAction");
-
-  messageNode.textContent = message;
-  actionButton.hidden = !actionLabel;
-  actionButton.textContent = actionLabel || "";
-  actionButton.onclick = null;
-
-  if (actionLabel && actionCallback) {
-    actionButton.onclick = () => {
-      actionCallback();
-      toast.classList.remove("show");
-    };
-  }
-
-  toast.classList.add("show");
-  window.clearTimeout(showToast.timer);
-  showToast.timer = window.setTimeout(() => {
-    toast.classList.remove("show");
-    actionButton.onclick = null;
-  }, duration);
-}
-
-function addSession(type, session) {
-  const history = getHistory();
-  const item = {
-    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    date: localDateKey(),
-    timestamp: new Date().toISOString(),
-    type,
-    session
-  };
-
-  history.push(item);
-  saveHistory(history);
-  renderAll();
-
-  showToast(
-    "Sesión guardada.",
-    "Deshacer",
-    () => removeSessionById(item.id, false, false),
-    5000
-  );
-}
-
-function removeSessionById(id, requireConfirmation = true, notify = true) {
-  const history = getHistory();
-  const item = history.find(entry => entry.id === id);
-  if (!item) return;
-
-  if (
-    requireConfirmation &&
-    !confirm(`¿Eliminar "${item.session}" del ${formatDate(item.date)}?`)
-  ) {
-    return;
-  }
-
-  saveHistory(history.filter(entry => entry.id !== id));
-  renderAll();
-  if (notify) showToast("Sesión eliminada.");
-}
-
-function toggleTodaySession(type, session) {
-  const history = getHistory();
-  const today = localDateKey();
-  const existing = history.find(item =>
-    item.date === today &&
-    item.type === type &&
-    item.session === session
-  );
-
-  if (existing) {
-    removeSessionById(existing.id, true);
-  } else {
-    addSession(type, session);
-  }
-}
-
-function startOfWeek(date) {
-  const copy = new Date(date);
-  const day = copy.getDay();
-  const offset = day === 0 ? -6 : 1 - day;
-  copy.setDate(copy.getDate() + offset);
-  copy.setHours(0, 0, 0, 0);
-  return copy;
-}
-
-function calculateStreak(history) {
-  const uniqueDates = [...new Set(history.map(item => item.date))].sort().reverse();
-  if (!uniqueDates.length) return 0;
-
-  let streak = 0;
-  const cursor = new Date();
-  cursor.setHours(12, 0, 0, 0);
-
-  const today = localDateKey(cursor);
-  const yesterday = new Date(cursor);
-  yesterday.setDate(yesterday.getDate() - 1);
-
-  if (uniqueDates[0] !== today && uniqueDates[0] !== localDateKey(yesterday)) return 0;
-  if (uniqueDates[0] !== today) cursor.setDate(cursor.getDate() - 1);
-
-  for (const dateKey of uniqueDates) {
-    if (dateKey === localDateKey(cursor)) {
-      streak += 1;
-      cursor.setDate(cursor.getDate() - 1);
-    } else if (dateKey < localDateKey(cursor)) {
-      break;
-    }
-  }
-  return streak;
-}
-
-function getConsecutiveLoadDays(history) {
-  const loadDates = [...new Set(
-    history
-      .filter(item => LOAD_TYPES.includes(item.type))
-      .map(item => item.date)
-  )].sort().reverse();
-
-  if (!loadDates.length) return 0;
-
-  const cursor = new Date();
-  cursor.setHours(12, 0, 0, 0);
-  const today = localDateKey(cursor);
-  const yesterday = new Date(cursor);
-  yesterday.setDate(yesterday.getDate() - 1);
-
-  if (loadDates[0] !== today && loadDates[0] !== localDateKey(yesterday)) return 0;
-  if (loadDates[0] !== today) cursor.setDate(cursor.getDate() - 1);
-
-  let count = 0;
-  for (const dateKey of loadDates) {
-    if (dateKey === localDateKey(cursor)) {
-      count += 1;
-      cursor.setDate(cursor.getDate() - 1);
-    } else if (dateKey < localDateKey(cursor)) {
-      break;
-    }
-  }
-  return count;
-}
-
-function getLoadStats(history) {
-  const now = new Date();
-  now.setHours(12, 0, 0, 0);
-
-  const last7 = history.filter(item => {
-    if (!LOAD_TYPES.includes(item.type)) return false;
-    const age = daysBetween(dateFromKey(item.date), now);
-    return age >= 0 && age < 7;
-  }).length;
-
-  const previous21 = history.filter(item => {
-    if (!LOAD_TYPES.includes(item.type)) return false;
-    const age = daysBetween(dateFromKey(item.date), now);
-    return age >= 7 && age < 28;
-  }).length;
-
-  const priorWeeklyAverage = previous21 / 3;
-  const notableIncrease =
-    priorWeeklyAverage >= 1 &&
-    last7 >= 4 &&
-    last7 > priorWeeklyAverage * 1.5;
-
-  return {
-    last7,
-    priorWeeklyAverage,
-    notableIncrease,
-    consecutiveDays: getConsecutiveLoadDays(history)
-  };
-}
-
-function renderHistory() {
-  const history = getHistory().sort((a, b) =>
-    String(b.timestamp).localeCompare(String(a.timestamp))
-  );
-
-  const now = new Date();
-  const weekStart = startOfWeek(now);
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-
-  const weekCount = history.filter(item =>
-    dateFromKey(item.date) >= weekStart
-  ).length;
-
-  const monthCount = history.filter(item =>
-    dateFromKey(item.date) >= monthStart
-  ).length;
-
-  document.getElementById("weekCount").textContent = weekCount;
-  document.getElementById("monthCount").textContent = monthCount;
-  document.getElementById("streakCount").textContent = `${calculateStreak(history)} días`;
-
-  document.getElementById("typeSummary").innerHTML = ACTIVITY_TYPES.map(type => {
-    const count = history.filter(item => item.type === type).length;
-    return `<div class="type-row"><span>${type}</span><strong>${count}</strong></div>`;
-  }).join("");
-
-  const historyList = document.getElementById("historyList");
-
-  if (!history.length) {
-    historyList.innerHTML = '<p class="muted">Todavía no has registrado sesiones.</p>';
-  } else {
-    historyList.innerHTML = history.slice(0, 20).map(item => `
-      <div class="history-item">
-        <div class="history-copy">
-          <strong>${escapeHtml(item.session)}</strong>
-          <small>${escapeHtml(item.type)} · ${formatDate(item.date)}</small>
-        </div>
-        <button
-          class="delete-session-btn"
-          type="button"
-          data-entry-id="${item.id}"
-          aria-label="Eliminar ${escapeHtml(item.session)}"
-        >Eliminar</button>
-      </div>
-    `).join("");
-
-    historyList.querySelectorAll(".delete-session-btn").forEach(button => {
-      button.addEventListener("click", () => {
-        removeSessionById(button.dataset.entryId, true);
-      });
-    });
-  }
-
-  document.querySelectorAll(".complete-btn, .quick-activity").forEach(button => {
-    const doneToday = history.some(item =>
-      item.date === localDateKey() &&
-      item.type === button.dataset.type &&
-      item.session === button.dataset.session
-    );
-
-    button.classList.toggle("done", doneToday);
-
-    if (button.classList.contains("complete-btn")) {
-      button.textContent = doneToday
-        ? "Registrada hoy · tocar para eliminar"
-        : "Marcar sesión completada";
-    } else {
-      button.textContent = doneToday
-        ? `${button.dataset.session} registrada · tocar para eliminar`
-        : `${button.dataset.session} completada`;
-    }
-  });
-
-  renderBackupStatus();
-}
-
-function exportBackup() {
-  const backup = {
-    app: "Personal Fitness App",
-    version: APP_VERSION,
-    exportedAt: new Date().toISOString(),
-    history: getHistory(),
-    bodyComposition: readJsonStorage(BODY_KEY, null),
-    recoveryChecks: getRecoveryChecks(),
-    goals: getGoalsState(),
-    appointments: getAppointments(),
-    physio: getPhysioSettings()
-  };
-
-  const blob = new Blob(
-    [JSON.stringify(backup, null, 2)],
-    { type: "application/json" }
-  );
-
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `personal-fitness-backup-${localDateKey()}.json`;
-  link.click();
-  URL.revokeObjectURL(url);
-
-  localStorage.setItem(BACKUP_META_KEY, JSON.stringify({
-    lastExport: new Date().toISOString()
+function makeDemoData() {
+  const history = [
+    [-27, "Gym", "Push"], [-26, "Swimming", "Swim W1 S1"], [-25, "Mobility", "Mobility"],
+    [-24, "Gym", "Pull"], [-22, "Hiking", "Hiking"], [-20, "Gym", "Legs"],
+    [-19, "Swimming", "Swim W1 S2"], [-17, "Gym", "Push"], [-16, "Mobility", "Mobility"],
+    [-15, "Swimming", "Swim W2 S1"], [-13, "Gym", "Pull"], [-12, "Open water", "Open water swim"],
+    [-10, "Gym", "Legs"], [-9, "Swimming", "Swim W2 S2"], [-7, "Mobility", "Mobility"],
+    [-6, "Gym", "Push"], [-5, "Swimming", "Swim W3 S1"], [-4, "Gym", "Pull"],
+    [-3, "Mobility", "Mobility"], [-2, "Gym", "Legs"], [-1, "Swimming", "Swim W3 S2"]
+  ].map(([offset, type, session], i) => ({
+    id: `demo-${i}`,
+    date: addDays(offset),
+    timestamp: new Date(new Date().setDate(new Date().getDate()+offset)).toISOString(),
+    type, session
   }));
 
-  renderBackupStatus();
-  showToast("Respaldo exportado.");
-}
-
-function importBackupFile(file) {
-  const reader = new FileReader();
-
-  reader.onload = () => {
-    try {
-      const parsed = JSON.parse(reader.result);
-      const isLegacyHistory = Array.isArray(parsed);
-      const history = isLegacyHistory ? parsed : parsed.history;
-
-      if (!Array.isArray(history)) {
-        throw new Error("El archivo no contiene un historial válido.");
-      }
-
-      if (!confirm("¿Reemplazar los datos locales actuales con este respaldo?")) {
-        return;
-      }
-
-      saveHistory(history);
-
-      if (!isLegacyHistory) {
-        if (Array.isArray(parsed.bodyComposition)) {
-          localStorage.setItem(BODY_KEY, JSON.stringify(parsed.bodyComposition));
-        }
-        if (Array.isArray(parsed.recoveryChecks)) {
-          saveRecoveryChecks(parsed.recoveryChecks);
-        }
-        if (parsed.goals && typeof parsed.goals === "object") {
-          saveGoalsState(parsed.goals);
-        }
-
-        if (parsed.appointments && typeof parsed.appointments === "object") {
-          saveAppointments({
-            psychologyNextDate: parsed.appointments.psychologyNextDate || null,
-            psychologyLastVisit: parsed.appointments.psychologyLastVisit || null,
-            physio: {
-              lastVisit: parsed.appointments.physio?.lastVisit || null,
-              intervalWeeks:
-                Number(parsed.appointments.physio?.intervalWeeks) || 8
-            }
-          });
-        } else if (parsed.physio && typeof parsed.physio === "object") {
-          savePhysioSettings({
-            lastVisit: parsed.physio.lastVisit || null,
-            intervalWeeks: Number(parsed.physio.intervalWeeks) || 8
-          });
-        }
-      }
-
-      localStorage.setItem(BACKUP_META_KEY, JSON.stringify({
-        lastImport: new Date().toISOString()
-      }));
-
-      renderAll();
-      loadSavedBody();
-      showToast("Respaldo importado.");
-    } catch (error) {
-      alert(`No se pudo importar el respaldo: ${error.message}`);
+  return {
+    history,
+    body: [
+      { date: addDays(-95), heightCm: 175, weightKg: 82.0, bmi: 26.8, muscleKg: 34.8, fatMassKg: 20.0, bodyFatPercent: 24.4, visceralFat: 8, waistHipRatio: 0.94, score: 74 },
+      { date: addDays(-65), heightCm: 175, weightKg: 80.9, bmi: 26.4, muscleKg: 35.0, fatMassKg: 18.8, bodyFatPercent: 23.2, visceralFat: 8, waistHipRatio: 0.93, score: 76 },
+      { date: addDays(-35), heightCm: 175, weightKg: 79.6, bmi: 26.0, muscleKg: 35.2, fatMassKg: 17.6, bodyFatPercent: 22.1, visceralFat: 7, waistHipRatio: 0.91, score: 78 },
+      { date: addDays(-5), heightCm: 175, weightKg: 78.6, bmi: 25.7, muscleKg: 35.3, fatMassKg: 16.9, bodyFatPercent: 21.5, visceralFat: 7, waistHipRatio: 0.90, score: 80 }
+    ],
+    goals: [
+      { title: "Weight range", initial: "82.0 kg", target: "78–80 kg", current: "78.6 kg", completed: true, startDate: addDays(-95), completionDate: addDays(-5) },
+      { title: "Body fat", initial: "24.4%", target: "20–21%", current: "21.5%", completed: false, startDate: addDays(-95), completionDate: null },
+      { title: "Maintain muscle mass", initial: "34.8 kg", target: "≥35 kg", current: "35.3 kg", completed: true, startDate: addDays(-95), completionDate: addDays(-35) },
+      { title: "Visceral fat", initial: "Level 8", target: "Level 6–7", current: "Level 7", completed: true, startDate: addDays(-95), completionDate: addDays(-5) },
+      { title: "Monthly consistency", initial: "8 sessions/month", target: "16 sessions/month", current: "15 sessions this month", completed: false, startDate: addDays(-35), completionDate: null }
+    ],
+    appointments: {
+      psychologyNextDate: addDays(1),
+      physioLastVisit: addDays(-55),
+      physioIntervalWeeks: 8
+    },
+    recovery: {
+      date: addDays(-2),
+      painScore: 2,
+      fatigue: "Medium",
+      sleep: "Good",
+      area: "Shoulder"
     }
   };
-
-  reader.readAsText(file);
 }
 
-function renderBackupStatus() {
-  const meta = readJsonStorage(BACKUP_META_KEY, {});
-  const status = document.getElementById("backupStatus");
-
-  if (meta.lastExport) {
-    const date = new Date(meta.lastExport);
-    status.textContent = `Último respaldo exportado: ${new Intl.DateTimeFormat("es-CR", {
-      day: "numeric",
-      month: "short",
-      year: "numeric"
-    }).format(date)}.`;
-  } else if (meta.lastImport) {
-    const date = new Date(meta.lastImport);
-    status.textContent = `Último respaldo importado: ${new Intl.DateTimeFormat("es-CR", {
-      day: "numeric",
-      month: "short",
-      year: "numeric"
-    }).format(date)}.`;
-  } else {
-    status.textContent = "Datos guardados solo en este dispositivo.";
+function loadState() {
+  let state = localStorage.getItem(KEY);
+  if (!state) {
+    state = makeDemoData();
+    localStorage.setItem(KEY, JSON.stringify(state));
+    return state;
   }
+  return JSON.parse(state);
+}
+function saveState(state) {
+  localStorage.setItem(KEY, JSON.stringify(state));
+}
+function toast(message, actionLabel=null, action=null) {
+  const t = document.getElementById("toast");
+  document.getElementById("toastMessage").textContent = message;
+  const btn = document.getElementById("toastAction");
+  btn.hidden = !actionLabel;
+  btn.textContent = actionLabel || "";
+  btn.onclick = action || null;
+  t.classList.add("show");
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => t.classList.remove("show"), 4000);
 }
 
-function clearHistory() {
-  if (!confirm("¿Deseas borrar todo el historial guardado en este navegador?")) return;
-  localStorage.removeItem(HISTORY_KEY);
-  renderAll();
-  showToast("Historial borrado.");
-}
-
-
-function getLatestBodyRecord() {
-  const records = readJsonStorage(BODY_KEY, null);
-  if (!Array.isArray(records) || !records.length) return null;
-
-  return [...records].sort((a, b) =>
-    String(a.date).localeCompare(String(b.date))
-  ).at(-1);
-}
-
-function renderGoalCard(definition, goalState) {
-  const latestBody = getLatestBodyRecord();
-  const currentValue = latestBody?.[definition.field];
-  const hasCurrentValue =
-    currentValue !== null &&
-    currentValue !== undefined &&
-    currentValue !== "";
-
-  const measurementReached =
-    hasCurrentValue && definition.reached(currentValue);
-
-  const completed = Boolean(goalState.completed);
-  const completionDate =
-    goalState.completionDate || (completed ? localDateKey() : null);
-
-  const daysToComplete = completionDate
-    ? Math.max(
-        0,
-        daysBetween(dateFromKey(GOAL_START_DATE), dateFromKey(completionDate))
-      )
-    : null;
-
-  return `
-    <article class="goal-card ${completed ? "goal-completed" : ""}">
-      <label class="goal-check-row">
-        <input
-          class="goal-checkbox"
-          type="checkbox"
-          data-goal-id="${definition.id}"
-          ${completed ? "checked" : ""}
-        >
-        <div class="goal-copy">
-          <h3>${escapeHtml(definition.title)}</h3>
-          <p>Meta: ${escapeHtml(definition.target)}</p>
-        </div>
-      </label>
-
-      <div class="goal-details">
-        <div class="goal-detail">
-          <span>Valor inicial</span>
-          <strong>${escapeHtml(definition.initial)}</strong>
-        </div>
-        <div class="goal-detail">
-          <span>Fecha de inicio</span>
-          <strong>${formatDate(GOAL_START_DATE)}</strong>
-        </div>
-        <div class="goal-detail">
-          <span>Última medición</span>
-          <strong>
-            ${
-              hasCurrentValue
-                ? escapeHtml(definition.format(currentValue))
-                : "Sin datos cargados"
-            }
-          </strong>
-        </div>
-        <div class="goal-detail">
-          <span>Estado</span>
-          <strong>${completed ? "Completado" : "Activo"}</strong>
-        </div>
+function renderRoutines(state) {
+  function card(routine) {
+    const doneToday = state.history.some(h => h.date === dateKey() && h.type === routine.type && h.session === routine.session);
+    return `<details class="card">
+      <summary>${escapeHtml(routine.title)}</summary>
+      <div class="card-body">
+        <ul class="routine-list">
+          ${routine.items.map(([name, detail]) => `<li><strong>${escapeHtml(name)}</strong><span>${escapeHtml(detail)}</span></li>`).join("")}
+        </ul>
+        ${routine.total ? `<p class="total">Total: ${escapeHtml(routine.total)}</p>` : ""}
+        <button class="complete-btn ${doneToday ? "done" : ""}" data-type="${routine.type}" data-session="${routine.session}" type="button">
+          ${doneToday ? "Completed today · tap to remove" : "Mark session completed"}
+        </button>
       </div>
+    </details>`;
+  }
+  document.getElementById("gymRoutines").innerHTML = ROUTINES.gym.map(card).join("");
+  document.getElementById("swimRoutines").innerHTML = ROUTINES.swim.map(card).join("");
 
-      ${
-        measurementReached
-          ? '<span class="goal-reached">La última medición cumple la meta</span>'
-          : hasCurrentValue
-            ? '<span class="goal-not-reached">La última medición aún no cumple la meta</span>'
-            : '<span class="goal-not-reached">Carga tu InBody para comparar automáticamente</span>'
-      }
-
-      ${
-        completed
-          ? `
-            <div class="goal-completion">
-              <label>
-                Fecha de cumplimiento
-                <input
-                  class="goal-completion-date"
-                  data-goal-id="${definition.id}"
-                  type="date"
-                  min="${GOAL_START_DATE}"
-                  max="${localDateKey()}"
-                  value="${completionDate}"
-                >
-              </label>
-              <p class="goal-days">
-                Tiempo para lograrlo: ${daysToComplete} ${
-                  daysToComplete === 1 ? "día" : "días"
-                }
-              </p>
-            </div>
-          `
-          : ""
-      }
-    </article>
-  `;
-}
-
-function renderGoals() {
-  const state = getGoalsState();
-
-  const active = GOAL_DEFINITIONS.filter(
-    goal => !state.items[goal.id]?.completed
-  );
-
-  const completed = GOAL_DEFINITIONS.filter(
-    goal => state.items[goal.id]?.completed
-  );
-
-  document.getElementById("activeGoalsCount").textContent = active.length;
-  document.getElementById("completedGoalsTotal").textContent = completed.length;
-  document.getElementById("completedGoalsCount").textContent = completed.length;
-
-  document.getElementById("activeGoalsList").innerHTML = active.length
-    ? active
-        .map(goal => renderGoalCard(goal, state.items[goal.id]))
-        .join("")
-    : '<p class="goals-empty">Todos los objetivos están completados.</p>';
-
-  document.getElementById("completedGoalsList").innerHTML = completed.length
-    ? completed
-        .map(goal => renderGoalCard(goal, state.items[goal.id]))
-        .join("")
-    : '<p class="goals-empty">Todavía no hay objetivos completados.</p>';
-
-  document.querySelectorAll(".goal-checkbox").forEach(checkbox => {
-    checkbox.addEventListener("change", () => {
-      const goalId = checkbox.dataset.goalId;
-      const current = getGoalsState();
-      const item = current.items[goalId];
-
-      if (!checkbox.checked) {
-        if (!confirm("¿Marcar este objetivo como pendiente nuevamente?")) {
-          checkbox.checked = true;
-          return;
-        }
-
-        item.completed = false;
-        item.completionDate = null;
-        saveGoalsState(current);
-        renderGoals();
-        showToast("Objetivo marcado como pendiente.");
-        return;
-      }
-
-      item.completed = true;
-      item.completionDate = localDateKey();
-      saveGoalsState(current);
-      renderGoals();
-      showToast("Objetivo completado.");
-    });
+  document.querySelectorAll(".complete-btn,.quick-activity[data-session]").forEach(btn => {
+    const type = btn.dataset.type;
+    const session = btn.dataset.session;
+    const doneToday = state.history.some(h => h.date === dateKey() && h.type === type && h.session === session);
+    btn.classList.toggle("done", doneToday);
+    btn.addEventListener("click", () => toggleSession(type, session));
   });
 
-  document.querySelectorAll(".goal-completion-date").forEach(input => {
-    input.addEventListener("change", () => {
-      const goalId = input.dataset.goalId;
-      const stateNow = getGoalsState();
-
-      if (!input.value) {
-        input.value = localDateKey();
-      }
-
-      stateNow.items[goalId].completionDate = input.value;
-      saveGoalsState(stateNow);
-      renderGoals();
-      showToast("Fecha de cumplimiento actualizada.");
-    });
-  });
-}
-
-function getPsychologyDateStatus(dateKey) {
-  if (!dateKey) {
-    return {
-      className: "",
-      title: "No agendada todavía",
-      message: "Selecciona la fecha de tu próxima cita.",
-      daysRemaining: null
-    };
-  }
-
-  const daysRemaining = daysBetween(new Date(), dateFromKey(dateKey));
-
-  if (daysRemaining < 0) {
-    return {
-      className: "date-past",
-      title: "La fecha registrada ya pasó",
-      message: `${formatDate(dateKey)} · actualiza o marca la cita como realizada.`,
-      daysRemaining
-    };
-  }
-
-  if (daysRemaining === 0) {
-    return {
-      className: "reminder-today",
-      title: "Cita de psicología hoy",
-      message: formatDate(dateKey),
-      daysRemaining
-    };
-  }
-
-  if (daysRemaining === 1) {
-    return {
-      className: "reminder-tomorrow",
-      title: "Cita de psicología mañana",
-      message: `${formatDate(dateKey)} · recuerda verificar hora y modalidad.`,
-      daysRemaining
-    };
-  }
-
-  return {
-    className: "",
-    title: formatDate(dateKey),
-    message: `Faltan ${daysRemaining} días.`,
-    daysRemaining
-  };
-}
-
-function getPhysioDueInfo() {
-  const settings = getPhysioSettings();
-
-  if (!settings.lastVisit) {
-    return {
-      dueDate: null,
-      daysRemaining: null,
-      title: "Sin visita registrada",
-      message: "Registra la última visita para calcular la próxima revisión."
-    };
-  }
-
-  const dueDate = dateFromKey(settings.lastVisit);
-  dueDate.setDate(
-    dueDate.getDate() + Number(settings.intervalWeeks || 8) * 7
-  );
-
-  const daysRemaining = daysBetween(new Date(), dueDate);
-
-  if (daysRemaining < 0) {
-    return {
-      dueDate: localDateKey(dueDate),
-      daysRemaining,
-      title: `Revisión vencida hace ${Math.abs(daysRemaining)} días`,
-      message: `Fecha estimada: ${formatDate(localDateKey(dueDate))}.`
-    };
-  }
-
-  if (daysRemaining === 0) {
-    return {
-      dueDate: localDateKey(dueDate),
-      daysRemaining,
-      title: "Revisión preventiva hoy",
-      message: formatDate(localDateKey(dueDate))
-    };
-  }
-
-  if (daysRemaining === 1) {
-    return {
-      dueDate: localDateKey(dueDate),
-      daysRemaining,
-      title: "Revisión preventiva mañana",
-      message: formatDate(localDateKey(dueDate))
-    };
-  }
-
-  return {
-    dueDate: localDateKey(dueDate),
-    daysRemaining,
-    title: formatDate(localDateKey(dueDate)),
-    message: `Faltan ${daysRemaining} días.`
-  };
-}
-
-function renderAppointments() {
-  const appointments = getAppointments();
-  const psychology = getPsychologyDateStatus(
-    appointments.psychologyNextDate
-  );
-
-  const psychologyCard = document.getElementById("psychologyCard");
-  psychologyCard.classList.remove(
-    "reminder-tomorrow",
-    "reminder-today",
-    "date-past"
-  );
-
-  if (psychology.className) {
-    psychologyCard.classList.add(psychology.className);
-  }
-
-  document.getElementById("psychologyDate").value =
-    appointments.psychologyNextDate || "";
-  document.getElementById("psychologyStatus").textContent = psychology.title;
-  document.getElementById("psychologyCountdown").textContent =
-    psychology.message;
-  document.getElementById("psychologyLastVisit").textContent =
-    appointments.psychologyLastVisit
-      ? `Última cita registrada: ${formatDate(
-          appointments.psychologyLastVisit
-        )}.`
-      : "Sin cita anterior registrada.";
-
-  document.getElementById("completePsychologyDate").disabled =
-    !appointments.psychologyNextDate;
-  document.getElementById("clearPsychologyDate").disabled =
-    !appointments.psychologyNextDate;
-
-  const physio = getPhysioDueInfo();
-  document.getElementById("physioDate").value =
-    appointments.physio.lastVisit || "";
-  document.getElementById("physioInterval").value =
-    String(appointments.physio.intervalWeeks || 8);
-  document.getElementById("physioAppointmentStatus").textContent =
-    physio.title;
-  document.getElementById("physioAppointmentCountdown").textContent =
-    physio.message;
-}
-
-function savePsychologyDate() {
-  const date = document.getElementById("psychologyDate").value;
-  if (!date) {
-    showToast("Selecciona una fecha.");
-    return;
-  }
-
-  if (!confirm(`¿Guardar la próxima cita para el ${formatDate(date)}?`)) {
-    return;
-  }
-
-  const appointments = getAppointments();
-  appointments.psychologyNextDate = date;
-  saveAppointments(appointments);
-  renderAll();
-  showToast("Cita de psicología guardada.");
-}
-
-function completePsychologyDate() {
-  const appointments = getAppointments();
-  if (!appointments.psychologyNextDate) return;
-
-  if (
-    !confirm(
-      `¿Marcar como realizada la cita del ${formatDate(
-        appointments.psychologyNextDate
-      )}?`
-    )
-  ) {
-    return;
-  }
-
-  appointments.psychologyLastVisit =
-    appointments.psychologyNextDate;
-  appointments.psychologyNextDate = null;
-  saveAppointments(appointments);
-  renderAll();
-  showToast("Cita marcada como realizada.");
-}
-
-function clearPsychologyDate() {
-  const appointments = getAppointments();
-  if (!appointments.psychologyNextDate) return;
-
-  if (!confirm("¿Quitar la fecha de la próxima cita de psicología?")) {
-    return;
-  }
-
-  appointments.psychologyNextDate = null;
-  saveAppointments(appointments);
-  renderAll();
-  showToast("Fecha eliminada.");
-}
-
-function savePhysioFromAppointments() {
-  const date = document.getElementById("physioDate").value;
-  const intervalWeeks = Number(
-    document.getElementById("physioInterval").value
-  );
-
-  if (!date) {
-    showToast("Selecciona la fecha de la última visita.");
-    return;
-  }
-
-  savePhysioSettings({
-    lastVisit: date,
-    intervalWeeks
-  });
-
-  renderAll();
-  showToast("Seguimiento de fisioterapia guardado.");
-}
-
-function renderAttention() {
-  const banner = document.getElementById("attentionBanner");
-  const itemsNode = document.getElementById("attentionItems");
-  const items = [];
-
-  const appointments = getAppointments();
-  const psychology = getPsychologyDateStatus(
-    appointments.psychologyNextDate
-  );
-
-  if (psychology.daysRemaining === 1) {
-    items.push({
-      label: "Psicología",
-      value: "Cita mañana"
-    });
-  } else if (psychology.daysRemaining === 0) {
-    items.push({
-      label: "Psicología",
-      value: "Cita hoy"
-    });
-  }
-
-  const physio = getPhysioDueInfo();
-  if (physio.daysRemaining !== null && physio.daysRemaining <= 1) {
-    items.push({
-      label: "Fisioterapia",
-      value:
-        physio.daysRemaining < 0
-          ? `Vencida hace ${Math.abs(physio.daysRemaining)} días`
-          : physio.daysRemaining === 0
-            ? "Revisión hoy"
-            : "Revisión mañana"
-    });
-  }
-
-  const recovery = calculateRecoveryStatus();
-  if (recovery.status === "orange" || recovery.status === "red") {
-    items.push({
-      label: "Recuperación",
-      value:
-        recovery.status === "red"
-          ? "Busca valoración"
-          : "Valora fisioterapia"
-    });
-  }
-
-  banner.classList.toggle("hidden", items.length === 0);
-  itemsNode.innerHTML = items
-    .slice(0, 3)
-    .map(
-      item => `
-        <div class="attention-item">
-          <strong>${escapeHtml(item.label)}</strong>
-          <span>${escapeHtml(item.value)}</span>
-        </div>
-      `
-    )
-    .join("");
-}
-
-
-function classifyCheck(check) {
-  if (!check) return "green";
-  if (check.redFlag) return "red";
-
-  const orange =
-    Number(check.painScore) >= 5 ||
-    check.symptomDuration === "7+" ||
-    check.techniqueImpact === "yes" ||
-    check.movementLimitation === true;
-
-  if (orange) return "orange";
-
-  const yellow =
-    Number(check.painScore) >= 3 ||
-    check.techniqueImpact === "slight" ||
-    check.fatigueLevel === "high" ||
-    check.sleepQuality === "bad";
-
-  return yellow ? "yellow" : "green";
-}
-
-function calculateRecoveryStatus() {
-  const history = getHistory();
-  const checks = getRecoveryChecks()
-    .sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)));
-
-  const load = getLoadStats(history);
-  const latestRecorded = checks[0] || null;
-  const latestAge = latestRecorded
-    ? daysBetween(dateFromKey(latestRecorded.date), new Date())
-    : null;
-  const latest = latestAge !== null && latestAge <= 14
-    ? latestRecorded
-    : null;
-  const checkStale = latestRecorded && !latest;
-
-  let status = classifyCheck(latest);
-  const reasons = [];
-
-  if (latest) {
-    if (latest.redFlag) {
-      reasons.push("Registraste un síntoma agudo importante.");
-    } else {
-      if (Number(latest.painScore) >= 5) reasons.push(`Dolor ${latest.painScore}/10.`);
-      else if (Number(latest.painScore) >= 3) reasons.push(`Dolor ${latest.painScore}/10.`);
-
-      if (latest.symptomDuration === "7+") reasons.push("La molestia lleva 7 días o más.");
-      if (latest.techniqueImpact === "yes") reasons.push("La molestia alteró el entrenamiento.");
-      if (latest.techniqueImpact === "slight") reasons.push("La molestia alteró un poco el entrenamiento.");
-      if (latest.movementLimitation) reasons.push("Registraste pérdida de fuerza o movilidad.");
-      if (latest.fatigueLevel === "high") reasons.push("Fatiga alta.");
-      if (latest.sleepQuality === "bad") reasons.push("Sueño de mala calidad.");
-    }
-  }
-
-  if (status !== "red") {
-    if (load.consecutiveDays >= 4 && status === "green") status = "yellow";
-    if (load.consecutiveDays >= 4) reasons.push(`${load.consecutiveDays} días de carga consecutivos.`);
-
-    if (load.notableIncrease && status === "green") status = "yellow";
-    if (load.notableIncrease) reasons.push("Aumento notable de sesiones frente a semanas anteriores.");
-
-    if (load.last7 >= 6 && status === "green") status = "yellow";
-    if (load.last7 >= 6) reasons.push(`${load.last7} sesiones de carga en 7 días.`);
-
-    const physio = getPhysioSettings();
-    if (physio.lastVisit) {
-      const due = dateFromKey(physio.lastVisit);
-      due.setDate(due.getDate() + Number(physio.intervalWeeks || 8) * 7);
-      const daysRemaining = daysBetween(new Date(), due);
-      if (daysRemaining < 0) {
-        if (status === "green") status = "yellow";
-        reasons.push(`La revisión preventiva lleva ${Math.abs(daysRemaining)} días vencida.`);
-      }
-    }
-  }
-
-  const recentConcerning = checks
-    .filter(check => {
-      const age = daysBetween(dateFromKey(check.date), new Date());
-      return age >= 0 && age < 14;
-    })
-    .map(classifyCheck)
-    .filter(level => level === "yellow" || level === "orange");
-
-  if (
-    status !== "red" &&
-    recentConcerning.length >= 2 &&
-    status !== "orange"
-  ) {
-    status = "orange";
-    reasons.push("Dos chequeos recientes mostraron señales de vigilancia.");
-  }
-
-  return { status, reasons, load, latest: latestRecorded, checkStale };
-}
-
-function renderRecovery() {
-  const { status, reasons, load, latest, checkStale } = calculateRecoveryStatus();
-  const card = document.getElementById("recoveryCard");
-  const statusNode = document.getElementById("recoveryStatus");
-  const titleNode = document.getElementById("recoveryTitle");
-  const messageNode = document.getElementById("recoveryMessage");
-
-  card.classList.remove("status-green", "status-yellow", "status-orange", "status-red");
-  card.classList.add(`status-${status}`);
-
-  const labels = {
-    green: "Verde",
-    yellow: "Amarillo",
-    orange: "Naranja",
-    red: "Rojo"
-  };
-
-  const titles = {
-    green: "Sin alertas actuales",
-    yellow: "Conviene priorizar recuperación",
-    orange: "Valora una revisión próxima",
-    red: "Suspende la actividad y busca valoración"
-  };
-
-  const defaultMessages = {
-    green: "Continúa según el plan y realiza un chequeo semanal.",
-    yellow: "Considera descanso o movilidad suave y revisa cómo evolucionas durante 24–48 horas.",
-    orange: "Considera programar fisioterapia durante los próximos 7 días y evita cargar la zona afectada.",
-    red: "Busca valoración médica apropiada sin esperar al recordatorio preventivo."
-  };
-
-  statusNode.textContent = labels[status];
-  titleNode.textContent = status === "green" && checkStale
-    ? "Chequeo semanal pendiente"
-    : titles[status];
-  messageNode.textContent = reasons.length
-    ? `${reasons.slice(0, 2).join(" ")} ${defaultMessages[status]}`
-    : status === "green" && checkStale
-      ? "El último chequeo tiene más de 14 días. Registra uno nuevo para actualizar el indicador."
-      : defaultMessages[status];
-
-  document.getElementById("load7Count").textContent = load.last7;
-  document.getElementById("loadStreak").textContent = load.consecutiveDays;
-
-  if (latest) {
-    const area = latest.bodyArea && latest.bodyArea !== "none"
-      ? ` · ${latest.bodyArea}`
-      : "";
-    document.getElementById("lastRecoveryCheck").textContent =
-      `Último chequeo: ${formatDate(latest.date)} · dolor ${latest.painScore}/10${area}.`;
-  } else {
-    document.getElementById("lastRecoveryCheck").textContent =
-      "Sin chequeos registrados.";
-  }
-
-  renderPhysioDue(status);
-}
-
-function renderPhysioDue(recoveryStatus = "green") {
-  const settings = getPhysioSettings();
-  const node = document.getElementById("physioDue");
-
-  if (!settings.lastVisit) {
-    node.textContent = recoveryStatus === "orange"
-      ? "Recomendada esta semana"
-      : "Sin fecha";
-    return;
-  }
-
-  const lastVisit = dateFromKey(settings.lastVisit);
-  const due = new Date(lastVisit);
-  due.setDate(due.getDate() + Number(settings.intervalWeeks || 8) * 7);
-
-  const daysRemaining = daysBetween(new Date(), due);
-
-  if (recoveryStatus === "orange") {
-    node.textContent = "Recomendada esta semana";
-  } else if (daysRemaining < 0) {
-    node.textContent = `Vencida hace ${Math.abs(daysRemaining)} días`;
-  } else if (daysRemaining === 0) {
-    node.textContent = "Hoy";
-  } else if (daysRemaining <= 7) {
-    node.textContent = `En ${daysRemaining} días`;
-  } else {
-    node.textContent = formatDate(localDateKey(due));
-  }
-}
-
-function saveRecoveryCheck(event) {
-  event.preventDefault();
-
-  const check = {
-    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    date: localDateKey(),
-    timestamp: new Date().toISOString(),
-    painScore: Number(document.getElementById("painScore").value),
-    techniqueImpact: document.getElementById("techniqueImpact").value,
-    fatigueLevel: document.getElementById("fatigueLevel").value,
-    sleepQuality: document.getElementById("sleepQuality").value,
-    symptomDuration: document.getElementById("symptomDuration").value,
-    bodyArea: document.getElementById("bodyArea").value,
-    movementLimitation: document.getElementById("movementLimitation").checked,
-    redFlag: document.getElementById("redFlag").checked
-  };
-
-  const checks = getRecoveryChecks();
-  checks.push(check);
-  saveRecoveryChecks(checks);
-
-  document.getElementById("recoveryDialog").close();
-  renderRecovery();
-  showToast("Chequeo guardado.");
-}
-
-
-function signed(value, decimals = 1) {
-  if (value === null || value === undefined || Number.isNaN(value)) return "—";
-  const fixed = Number(value).toFixed(decimals);
-  return `${value > 0 ? "+" : ""}${fixed}`;
-}
-
-function renderBodyData(records) {
-  if (!Array.isArray(records) || !records.length) {
-    throw new Error("El archivo no contiene mediciones.");
-  }
-
-  const sorted = [...records].sort((a, b) =>
-    String(a.date).localeCompare(String(b.date))
-  );
-
-  const latest = sorted[sorted.length - 1];
-  const previous = sorted.length > 1 ? sorted[sorted.length - 2] : null;
-
-  document.getElementById("bodyWeight").textContent = `${latest.weightKg ?? "—"} kg`;
-  document.getElementById("bodyBmi").textContent = latest.bmi ?? "—";
-  document.getElementById("bodyMuscle").textContent = `${latest.muscleKg ?? "—"} kg`;
-  document.getElementById("bodyFat").textContent = `${latest.bodyFatPercent ?? "—"}%`;
-
-  const fields = [
-    ["Fecha", latest.date],
-    ["Estatura", latest.heightCm ? `${latest.heightCm} cm` : "—"],
-    ["Peso", latest.weightKg != null ? `${latest.weightKg} kg` : "—"],
-    ["IMC", latest.bmi ?? "—"],
-    ["Masa muscular", latest.muscleKg != null ? `${latest.muscleKg} kg` : "—"],
-    ["Masa grasa", latest.fatMassKg != null ? `${latest.fatMassKg} kg` : "—"],
-    ["Grasa corporal", latest.bodyFatPercent != null ? `${latest.bodyFatPercent}%` : "—"],
-    ["Grasa visceral", latest.visceralFat ?? "—"],
-    ["Cintura/cadera", latest.waistHipRatio ?? "—"],
-    ["Puntaje InBody", latest.inBodyScore ?? "—"]
-  ];
-
-  document.getElementById("bodyLatest").innerHTML = fields
-    .map(([label, value]) =>
-      `<div class="body-row"><span>${label}</span><strong>${value}</strong></div>`
-    )
-    .join("");
-
-  if (previous) {
-    const trendFields = [
-      ["Peso", `${signed(latest.weightKg - previous.weightKg)} kg`],
-      ["Masa muscular", `${signed(latest.muscleKg - previous.muscleKg)} kg`],
-      ["Masa grasa", `${signed(latest.fatMassKg - previous.fatMassKg)} kg`],
-      ["Grasa corporal", `${signed(latest.bodyFatPercent - previous.bodyFatPercent)} pts`],
-      ["Grasa visceral", signed(latest.visceralFat - previous.visceralFat, 0)],
-      ["Cintura/cadera", signed(latest.waistHipRatio - previous.waistHipRatio, 2)]
-    ];
-
-    document.getElementById("bodyTrend").innerHTML = trendFields
-      .map(([label, value]) =>
-        `<div class="body-row"><span>${label}</span><strong>${value}</strong></div>`
-      )
-      .join("");
-  } else {
-    document.getElementById("bodyTrend").innerHTML =
-      '<p class="muted">Se necesita al menos una medición anterior para calcular tendencias.</p>';
-  }
-
-  document.getElementById("bodyDashboard").classList.remove("hidden");
-  document.getElementById("bodyStatus").textContent =
-    `${sorted.length} medición(es) cargada(s).`;
-
-  renderGoals();
-}
-
-function loadSavedBody() {
-  const saved = readJsonStorage(BODY_KEY, null);
-  if (saved) {
-    try {
-      renderBodyData(saved);
-    } catch {}
-  }
-}
-
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function enableAccordions() {
-  document.querySelectorAll(".cards, .timeline").forEach(container => {
+  document.querySelectorAll(".cards").forEach(container => {
     container.querySelectorAll(":scope > details").forEach(details => {
       details.addEventListener("toggle", () => {
         if (!details.open) return;
@@ -1333,84 +208,206 @@ function enableAccordions() {
   });
 }
 
-function renderAll() {
-  renderHistory();
-  renderGoals();
-  renderRecovery();
-  renderAppointments();
-  renderAttention();
+function toggleSession(type, session) {
+  const state = loadState();
+  const existing = state.history.find(h => h.date === dateKey() && h.type === type && h.session === session);
+  if (existing) {
+    state.history = state.history.filter(h => h.id !== existing.id);
+    saveState(state);
+    render();
+    toast("Session removed.");
+    return;
+  }
+  const item = { id: `user-${Date.now()}`, date: dateKey(), timestamp: new Date().toISOString(), type, session };
+  state.history.push(item);
+  saveState(state);
+  render();
+  toast("Session saved.", "Undo", () => {
+    const next = loadState();
+    next.history = next.history.filter(h => h.id !== item.id);
+    saveState(next);
+    render();
+    toast("Session removed.");
+  });
 }
 
-document.querySelectorAll(".complete-btn, .quick-activity").forEach(button => {
-  button.addEventListener("click", () => {
-    toggleTodaySession(button.dataset.type, button.dataset.session);
+function calcStreak(history) {
+  const dates = [...new Set(history.map(h => h.date))].sort().reverse();
+  if (!dates.length) return 0;
+  let cursor = new Date();
+  cursor.setHours(12,0,0,0);
+  const today = dateKey(cursor);
+  const y = new Date(cursor); y.setDate(y.getDate()-1);
+  if (dates[0] !== today && dates[0] !== dateKey(y)) return 0;
+  if (dates[0] !== today) cursor.setDate(cursor.getDate()-1);
+  let count = 0;
+  for (const d of dates) {
+    if (d === dateKey(cursor)) { count++; cursor.setDate(cursor.getDate()-1); }
+    else if (d < dateKey(cursor)) break;
+  }
+  return count;
+}
+
+function renderConsistency(state) {
+  const now = new Date();
+  const weekStart = startOfWeek(now);
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const week = state.history.filter(h => new Date(h.date+"T12:00:00") >= weekStart).length;
+  const month = state.history.filter(h => new Date(h.date+"T12:00:00") >= monthStart).length;
+  const streak = calcStreak(state.history);
+  ["weekCount","overviewWeek"].forEach(id => document.getElementById(id).textContent = week);
+  ["monthCount","overviewMonth"].forEach(id => document.getElementById(id).textContent = month);
+  ["streakCount","overviewStreak"].forEach(id => document.getElementById(id).textContent = `${streak} days`);
+
+  document.getElementById("typeSummary").innerHTML = TYPES.map(type => {
+    const count = state.history.filter(h => h.type === type).length;
+    return `<div class="type-row"><span>${type}</span><strong>${count}</strong></div>`;
+  }).join("");
+
+  document.getElementById("historyList").innerHTML = state.history
+    .slice()
+    .sort((a,b) => b.timestamp.localeCompare(a.timestamp))
+    .slice(0, 20)
+    .map(item => `<div class="history-item">
+      <div class="history-copy"><strong>${escapeHtml(item.session)}</strong><small>${escapeHtml(item.type)} · ${fmt(item.date)}</small></div>
+      <button class="delete-session-btn" data-id="${item.id}" type="button">Delete</button>
+    </div>`).join("");
+
+  document.querySelectorAll(".delete-session-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const next = loadState();
+      next.history = next.history.filter(h => h.id !== btn.dataset.id);
+      saveState(next);
+      render();
+      toast("Session deleted.");
+    });
   });
+}
+
+function renderGoals(state) {
+  const active = state.goals.filter(g => !g.completed).length;
+  const completed = state.goals.length - active;
+  document.getElementById("activeGoalsCount").textContent = active;
+  document.getElementById("completedGoalsCount").textContent = completed;
+  document.getElementById("goalsList").innerHTML = state.goals.map(goal => {
+    const days = goal.completed ? daysBetween(goal.startDate, goal.completionDate) : daysBetween(goal.startDate, dateKey());
+    return `<article class="goal-card ${goal.completed ? "completed" : ""}">
+      <h3>${goal.completed ? "✓ " : "○ "}${escapeHtml(goal.title)}</h3>
+      <p class="muted">Target: ${escapeHtml(goal.target)}</p>
+      <div class="goal-details">
+        <div class="goal-detail"><span>Initial</span><strong>${escapeHtml(goal.initial)}</strong></div>
+        <div class="goal-detail"><span>Current</span><strong>${escapeHtml(goal.current)}</strong></div>
+        <div class="goal-detail"><span>Start date</span><strong>${fmt(goal.startDate)}</strong></div>
+        <div class="goal-detail"><span>${goal.completed ? "Time to achieve" : "Days active"}</span><strong>${days} days</strong></div>
+      </div>
+      ${goal.completed ? '<span class="goal-badge">Completed goal</span>' : ''}
+    </article>`;
+  }).join("");
+}
+
+function renderRecovery(state) {
+  const loadDates = state.history.filter(h => LOAD_TYPES.includes(h.type)).map(h => h.date);
+  const last7 = loadDates.filter(d => daysBetween(d+"T12:00:00", new Date()) >= 0 && daysBetween(d+"T12:00:00", new Date()) < 7).length;
+  const unique = [...new Set(loadDates)].sort().reverse();
+  let streak = 0;
+  let cursor = new Date(); cursor.setHours(12,0,0,0);
+  for (const d of unique) {
+    if (d === dateKey(cursor)) { streak++; cursor.setDate(cursor.getDate()-1); }
+    else if (d < dateKey(cursor)) break;
+  }
+
+  const physioDue = new Date(state.appointments.physioLastVisit + "T12:00:00");
+  physioDue.setDate(physioDue.getDate() + state.appointments.physioIntervalWeeks * 7);
+  const physioDays = daysBetween(new Date(), physioDue);
+  const card = document.getElementById("recoveryCard");
+  card.classList.remove("status-green","status-yellow","status-orange","status-red");
+
+  let status = "green";
+  let title = "No current alerts";
+  let message = "Training load and latest recovery check look manageable.";
+  if (last7 >= 6 || streak >= 4 || physioDays <= 1) {
+    status = "yellow";
+    title = "Monitor recovery";
+    message = "Recent load or appointment timing suggests prioritizing recovery and checking symptoms.";
+  }
+  card.classList.add(`status-${status}`);
+  document.getElementById("recoveryStatus").textContent = status === "green" ? "Green" : "Yellow";
+  document.getElementById("recoveryTitle").textContent = title;
+  document.getElementById("recoveryMessage").textContent = message;
+  document.getElementById("load7").textContent = last7;
+  document.getElementById("loadStreak").textContent = streak;
+  document.getElementById("physioDue").textContent = physioDays < 0 ? `Overdue ${Math.abs(physioDays)} days` : physioDays === 0 ? "Today" : physioDays === 1 ? "Tomorrow" : `In ${physioDays} days`;
+}
+
+function renderAppointments(state) {
+  const psychDays = daysBetween(new Date(), new Date(state.appointments.psychologyNextDate + "T12:00:00"));
+  document.getElementById("psychologyTitle").textContent = psychDays === 1 ? "Session tomorrow" : `Session in ${psychDays} days`;
+  document.getElementById("psychologyText").textContent = `${fmt(state.appointments.psychologyNextDate)} · sample reminder to verify time and modality.`;
+  const due = new Date(state.appointments.physioLastVisit + "T12:00:00");
+  due.setDate(due.getDate() + state.appointments.physioIntervalWeeks * 7);
+  const days = daysBetween(new Date(), due);
+  document.getElementById("physioTitle").textContent = days === 1 ? "Preventive review tomorrow" : `Preventive review in ${days} days`;
+  document.getElementById("physioText").textContent = `Last sample visit: ${fmt(state.appointments.physioLastVisit)} · interval: ${state.appointments.physioIntervalWeeks} weeks.`;
+}
+
+function renderNutrition() {
+  document.getElementById("nutritionTimeline").innerHTML = NUTRITION.map(meal => `<details class="card">
+    <summary><span>${meal.time}</span> ${meal.title}</summary>
+    <div class="card-body">
+      <div class="meal-options">
+        ${meal.options.map((option, i) => `<article><h4>Option ${i+1}</h4><ul><li>${escapeHtml(option)}</li></ul></article>`).join("")}
+      </div>
+    </div>
+  </details>`).join("");
+}
+
+function renderBody(state) {
+  const records = state.body.slice().sort((a,b) => a.date.localeCompare(b.date));
+  const latest = records.at(-1);
+  const previous = records.at(-2);
+  document.getElementById("bodyWeight").textContent = `${latest.weightKg.toFixed(1)} kg`;
+  document.getElementById("bodyFat").textContent = `${latest.bodyFatPercent.toFixed(1)}%`;
+  document.getElementById("bodyMuscle").textContent = `${latest.muscleKg.toFixed(1)} kg`;
+  document.getElementById("bodyLatest").innerHTML = [
+    ["Date", fmt(latest.date)], ["Height", `${latest.heightCm} cm`], ["BMI", latest.bmi.toFixed(1)], ["Fat mass", `${latest.fatMassKg.toFixed(1)} kg`],
+    ["Visceral fat", `Level ${latest.visceralFat}`], ["Waist/hip ratio", latest.waistHipRatio.toFixed(2)], ["Score", latest.score]
+  ].map(([k,v]) => `<div class="body-row"><span>${k}</span><strong>${v}</strong></div>`).join("");
+  document.getElementById("bodyTrend").innerHTML = [
+    ["Weight", latest.weightKg - previous.weightKg, "kg"], ["Muscle mass", latest.muscleKg - previous.muscleKg, "kg"],
+    ["Fat mass", latest.fatMassKg - previous.fatMassKg, "kg"], ["Body fat", latest.bodyFatPercent - previous.bodyFatPercent, "pts"],
+    ["Visceral fat", latest.visceralFat - previous.visceralFat, ""]
+  ].map(([k,d,u]) => `<div class="body-row"><span>${k}</span><strong>${d > 0 ? "+" : ""}${d.toFixed(u ? 1 : 0)} ${u}</strong></div>`).join("");
+}
+
+function render() {
+  const state = loadState();
+  renderRoutines(state);
+  renderConsistency(state);
+  renderGoals(state);
+  renderRecovery(state);
+  renderAppointments(state);
+  renderNutrition();
+  renderBody(state);
+}
+
+document.getElementById("resetDemo").addEventListener("click", () => {
+  if (!confirm("Reset demo data to the original sample state?")) return;
+  localStorage.removeItem(KEY);
+  render();
+  toast("Demo data reset.");
+});
+document.getElementById("exportBackup").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify(loadState(), null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `demo-fitness-backup-${dateKey()}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+  toast("Demo backup exported.");
 });
 
-document.getElementById("exportHistory").addEventListener("click", exportBackup);
-document.getElementById("clearHistory").addEventListener("click", clearHistory);
-
-document.getElementById("historyImport").addEventListener("change", event => {
-  const file = event.target.files?.[0];
-  if (file) importBackupFile(file);
-  event.target.value = "";
-});
-
-document.getElementById("openRecoveryCheck").addEventListener("click", () => {
-  document.getElementById("recoveryDialog").showModal();
-});
-
-document.getElementById("recoveryForm").addEventListener("submit", saveRecoveryCheck);
-
-document.getElementById("savePsychologyDate").addEventListener(
-  "click",
-  savePsychologyDate
-);
-document.getElementById("completePsychologyDate").addEventListener(
-  "click",
-  completePsychologyDate
-);
-document.getElementById("clearPsychologyDate").addEventListener(
-  "click",
-  clearPsychologyDate
-);
-document.getElementById("savePhysioSettings").addEventListener(
-  "click",
-  savePhysioFromAppointments
-);
-
-document.querySelectorAll("[data-close-dialog]").forEach(button => {
-  button.addEventListener("click", () => {
-    document.getElementById(button.dataset.closeDialog).close();
-  });
-});
-
-document.getElementById("painScore").addEventListener("input", event => {
-  document.getElementById("painValue").textContent = event.target.value;
-});
-
-document.getElementById("bodyFile").addEventListener("change", event => {
-  const file = event.target.files?.[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = () => {
-    try {
-      const records = JSON.parse(reader.result);
-      renderBodyData(records);
-      localStorage.setItem(BODY_KEY, JSON.stringify(records));
-      showToast("Evaluación física cargada.");
-    } catch (error) {
-      document.getElementById("bodyStatus").textContent =
-        `No se pudo leer el archivo: ${error.message}`;
-    }
-  };
-  reader.readAsText(file);
-});
-
-enableAccordions();
-renderAll();
-loadSavedBody();
+render();
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
